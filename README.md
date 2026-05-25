@@ -1,6 +1,7 @@
 # FRP 客户端配置生成器 (frpc)
 
 可视化生成 [frp](https://github.com/fatedier/frp) 客户端 `frpc.toml` 配置文件，无需手写 TOML。单文件 HTML，浏览器打开即用，数据仅在本地处理。
+<img width="3056" height="1588" alt="image" src="https://github.com/user-attachments/assets/6d74bfd7-fd80-420e-b47d-9a9e4e8e8c9f" />
 
 ## 功能概览
 
@@ -36,6 +37,10 @@
 4. 工具会自动解析：
    - 服务器地址、端口、Token、传输协议、STUN 等 → 填入步骤②
    - 所有 `[[proxies]]` 段 → 填入后续「添加代理 / 代理列表」
+<img width="3056" height="1588" alt="image" src="https://github.com/user-attachments/assets/f23fb59b-f6d1-4b96-8503-5f31e939f6f7" />
+<img width="3056" height="1588" alt="image" src="https://github.com/user-attachments/assets/9851c4ca-9a91-4c32-8591-4b25b2d64175" />
+
+
 
 #### 方式 B：从头开始
 
@@ -126,6 +131,7 @@
 1. 以表格查看所有代理：类型、名称、本地地址、远程端口/域名。
 2. **Ping**：对配置了 HTTP/HTTPS **自定义域名** 的条目测延迟（显示 ms 或失败原因）。
 3. **全部 Ping**：依次检测所有可 Ping 的代理。
+<img width="3056" height="1588" alt="image" src="https://github.com/user-attachments/assets/ec7e59cb-c6f7-4af8-912d-bfe0bb941f68" />
 4. 同样支持 **编辑**、**删除**。
 
 > Ping 在浏览器内发起请求，仅适用于 HTTP/HTTPS 且已填域名的代理；纯 TCP/UDP 无域名时显示「无域名」。
@@ -153,6 +159,7 @@
 3. 选择操作：
    - **一键复制** → 粘贴到记事本，保存为 `frpc.toml`。
    - **下载文件** → 直接得到 `frpc.toml`。
+<img width="3056" height="1588" alt="image" src="https://github.com/user-attachments/assets/9f07041c-6d04-4b4c-a9c0-0e1f649e3300" />
 
 ---
 
