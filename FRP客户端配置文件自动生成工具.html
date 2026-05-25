@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frpc · 配置生成器</title>
+<style>
+:root {
+    --purple: #5856d6;
+    --purple-light: rgba(88,86,214,.12);
+    --purple-glow: rgba(88,86,214,.28);
+    --bg: #f2f2f7;
+    --card: #fff;
+    --text: #1d1d1f;
+    --text2: #86868b;
+    --border: rgba(0,0,0,.06);
+    --radius: 16px;
+    --ease: cubic-bezier(.25,.1,.25,1);
+    --spring: cubic-bezier(.34,1.56,.64,1);
+    --green: #34c759;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+}
+.shell { max-width: 780px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; padding: 20px 16px 32px; }
+.top {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 16px; padding: 12px 0 20px;
+}
+.top-center { flex: 1; text-align: center; }
+.top h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -.04em; color: var(--purple); }
+.top p { font-size: .8rem; color: var(--text2); margin-top: 6px; }
+.top-actions { flex-shrink: 0; padding-top: 4px; }
+.btn-save {
+    padding: 10px 18px; font-size: .82rem;
+    background: var(--purple); color: #fff; border: none; border-radius: 10px;
+    font-weight: 600; font-family: inherit; cursor: pointer;
+    box-shadow: 0 4px 14px var(--purple-glow);
+    transition: all .25s var(--spring);
+    opacity: 0; pointer-events: none;
+}
+.btn-save.show { opacity: 1; pointer-events: auto; }
+.btn-save:hover { transform: translateY(-2px); box-shadow: 0 6px 20px var(--purple-glow); }
+.btn-save:active { transform: scale(.96); }
+.top-spacer { width: 88px; flex-shrink: 0; }
+@media(max-width:520px){ .top-spacer{ width:0; display:none; } .top-actions{ position:absolute; right:16px; top:20px; } .shell{ position:relative; } }
+
+/* Step bar */
+.steps { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 20px; }
+.step-dot {
+    display: flex; align-items: center; gap: 8px;
+    font-size: .78rem; font-weight: 600; color: var(--text2);
+    padding: 8px 14px; border-radius: 20px;
+    background: rgba(255,255,255,.6); border: 1px solid var(--border);
+    transition: all .3s var(--ease);
+}
+.step-dot.active { background: var(--purple); color: #fff; border-color: var(--purple); box-shadow: 0 4px 14px var(--purple-glow); }
+.step-dot.done { color: var(--green); border-color: rgba(52,199,89,.3); background: rgba(52,199,89,.08); }
+.step-line { width: 24px; height: 2px; background: var(--border); border-radius: 1px; }
+.step-line.done { background: var(--green); }
+
+.nav {
+    display: flex; gap: 6px;
+    background: rgba(255,255,255,.7); backdrop-filter: blur(16px);
+    padding: 5px; border-radius: 12px; border: 1px solid var(--border);
+    margin-bottom: 20px; box-shadow: 0 2px 16px rgba(0,0,0,.04);
+}
+.nav-btn {
+    flex: 1; padding: 10px 8px; border: none; background: transparent;
+    border-radius: 9px; font-size: .84rem; font-weight: 600; color: var(--text2);
+    cursor: pointer; font-family: inherit; transition: all .28s var(--ease);
+}
+.nav-btn:hover { color: var(--text); }
+.nav-btn:active { transform: scale(.97); }
+.nav-btn.active { background: var(--purple); color: #fff; box-shadow: 0 4px 14px var(--purple-glow); }
+.nav-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+.page { display: none; flex: 1; flex-direction: column; animation: up .35s var(--ease); }
+.page.active { display: flex; }
+@keyframes up { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+
+.card {
+    background: var(--card); border-radius: var(--radius);
+    padding: 24px 22px; border: 1px solid var(--border);
+    box-shadow: 0 4px 24px rgba(0,0,0,.04); margin-bottom: 16px;
+}
+.card-title { font-size: .92rem; font-weight: 700; margin-bottom: 16px; color: var(--text); }
+.field { margin-bottom: 16px; }
+.field:last-child { margin-bottom: 0; }
+.field label { display: block; font-size: .78rem; font-weight: 600; color: var(--text2); margin-bottom: 7px; }
+.field label .opt { font-weight: 400; color: #aaa; }
+.field input, .field select, .field textarea {
+    width: 100%; padding: 13px 15px;
+    border: 1.5px solid var(--border); border-radius: 12px;
+    font-size: .92rem; font-family: inherit; background: #fafafa;
+    transition: all .22s var(--ease); color: var(--text);
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+    outline: none; border-color: var(--purple); background: #fff;
+    box-shadow: 0 0 0 4px var(--purple-light);
+}
+.field textarea { min-height: 140px; resize: vertical; font-family: "SF Mono", Consolas, monospace; font-size: .82rem; line-height: 1.5; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media(max-width:520px){ .form-grid{ grid-template-columns:1fr; } }
+
+/* Mode cards step1 */
+.mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media(max-width:480px){ .mode-grid{ grid-template-columns:1fr; } }
+.mode-card {
+    padding: 28px 20px; text-align: center;
+    border: 2px solid var(--border); border-radius: var(--radius);
+    cursor: pointer; transition: all .32s var(--spring); background: var(--card);
+}
+.mode-card:hover { transform: translateY(-4px); border-color: rgba(88,86,214,.4); box-shadow: 0 12px 28px var(--purple-glow); }
+.mode-card.selected { border-color: var(--purple); background: var(--purple-light); }
+.mode-card .mc-icon { font-size: 2.2rem; margin-bottom: 12px; }
+.mode-card h3 { font-size: .95rem; font-weight: 700; margin-bottom: 6px; }
+.mode-card p { font-size: .78rem; color: var(--text2); line-height: 1.45; }
+
+/* Advanced collapse */
+.adv-toggle {
+    width: 100%; display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 16px; background: #f9f9fb; border: 1px solid var(--border);
+    border-radius: 12px; cursor: pointer; font-family: inherit;
+    font-size: .86rem; font-weight: 600; color: var(--text);
+    transition: all .25s; margin-top: 8px;
+}
+.adv-toggle:hover { border-color: rgba(88,86,214,.35); }
+.adv-toggle .arrow { transition: transform .3s var(--spring); color: var(--text2); }
+.adv-block.open .adv-toggle .arrow { transform: rotate(180deg); }
+.adv-body { max-height: 0; overflow: hidden; transition: max-height .4s var(--ease); }
+.adv-block.open .adv-body { max-height: 400px; }
+.adv-inner { padding: 16px 0 4px; }
+.check-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; font-size: .86rem; cursor: pointer; }
+.check-row input { accent-color: var(--purple); width: 18px; height: 18px; }
+
+.btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 13px 28px; border: none; border-radius: 12px;
+    font-size: .9rem; font-weight: 600; font-family: inherit; cursor: pointer;
+    transition: all .25s var(--spring);
+}
+.btn:active { transform: scale(.96); }
+.btn-purple { background: var(--purple); color: #fff; box-shadow: 0 6px 20px var(--purple-glow); }
+.btn-purple:hover { transform: translateY(-2px); }
+.btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); padding: 8px 14px; font-size: .8rem; border-radius: 8px; }
+.btn-ghost:hover { border-color: var(--purple); color: var(--purple); }
+.btn-green { background: var(--green); color: #fff; padding: 8px 14px; font-size: .8rem; border-radius: 8px; border: none; cursor: pointer; font-family: inherit; font-weight: 600; }
+.btn-green:hover { filter: brightness(1.05); transform: translateY(-1px); }
+.btn-danger { background: #ff3b30; color: #fff; padding: 8px 14px; font-size: .8rem; border-radius: 8px; border: none; cursor: pointer; font-family: inherit; font-weight: 600; }
+.btn-row { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; flex-wrap: wrap; }
+
+.grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 24px; }
+@media(max-width:520px){ .grid{ grid-template-columns:repeat(2,1fr); } }
+.tile {
+    background: var(--card); border: 1.5px solid var(--border); border-radius: var(--radius);
+    padding: 22px 12px; text-align: center; cursor: pointer; transition: all .32s var(--spring);
+}
+.tile:hover { transform: translateY(-5px); border-color: var(--purple); box-shadow: 0 14px 32px var(--purple-glow); }
+.tile:active { transform: scale(.96); }
+.tile-icon { width: 48px; height: 48px; margin: 0 auto 12px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; background: var(--purple-light); color: var(--purple); }
+.tile-name { font-size: .88rem; font-weight: 700; }
+.tile-sub { font-size: .7rem; color: var(--text2); margin-top: 4px; }
+
+.list-head { display: flex; justify-content: space-between; align-items: center; font-size: .82rem; font-weight: 600; color: var(--text2); margin-bottom: 12px; }
+.row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 16px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; margin-bottom: 8px; transition: transform .2s;
+}
+.row:hover { transform: translateX(3px); }
+.tag { display: inline-block; font-size: .65rem; font-weight: 700; padding: 2px 7px; border-radius: 5px; background: var(--purple-light); color: var(--purple); margin-right: 6px; }
+.row-title { font-size: .86rem; font-weight: 600; }
+.row-meta { font-size: .72rem; color: var(--text2); margin-top: 3px; }
+.row-btns { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
+.ping-badge { font-size: .72rem; font-weight: 600; min-width: 52px; text-align: center; }
+.ping-ok { color: var(--green); }
+.ping-fail { color: #ff3b30; }
+.ping-wait { color: var(--text2); }
+.empty { text-align: center; padding: 36px; color: var(--text2); font-size: .85rem; }
+
+.data-table { width: 100%; border-collapse: collapse; font-size: .82rem; background: var(--card); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
+.data-table th { text-align: left; padding: 11px 14px; color: var(--text2); font-weight: 600; font-size: .72rem; border-bottom: 1px solid var(--border); background: #fafafa; }
+.data-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: var(--purple-light); }
+
+.config-only { flex: 1; flex-direction: column; min-height: calc(100vh - 200px); }
+.page.active.config-only { display: flex; }
+.config-only textarea {
+    flex: 1; width: 100%; min-height: 480px; padding: 20px;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: #1c1c1e; color: #ebebf5;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: .8rem; line-height: 1.65; resize: none;
+}
+.config-hint { text-align: center; font-size: .72rem; color: var(--text2); margin-top: 10px; }
+
+.overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.35); backdrop-filter: blur(10px);
+    z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px;
+    opacity: 0; pointer-events: none; transition: opacity .3s;
+}
+.overlay.on { opacity: 1; pointer-events: auto; }
+.dialog {
+    background: var(--card); border-radius: 20px; width: 100%; max-width: 440px;
+    max-height: 88vh; overflow-y: auto; box-shadow: 0 24px 64px rgba(0,0,0,.18);
+    transform: scale(.94) translateY(16px); transition: transform .38s var(--spring);
+}
+.overlay.on .dialog { transform: scale(1) translateY(0); }
+.dialog-wide { max-width: 640px; }
+.dialog-wide textarea.config-preview {
+    width: 100%; min-height: 360px; max-height: 55vh;
+    padding: 16px; border: 1px solid var(--border); border-radius: 12px;
+    background: #1c1c1e; color: #ebebf5;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: .78rem; line-height: 1.65; resize: vertical;
+}
+.dialog-foot-between { justify-content: space-between; align-items: center; }
+.dialog-foot-between .hint { font-size: .72rem; color: var(--text2); }
+.dialog-head { display: flex; justify-content: space-between; align-items: center; padding: 22px 24px 0; }
+.dialog-head h2 { font-size: 1.05rem; font-weight: 700; }
+.dialog-x { width: 30px; height: 30px; border: none; background: #f2f2f7; border-radius: 50%; cursor: pointer; font-size: 1rem; color: var(--text2); }
+.dialog-body { padding: 20px 24px; }
+.dialog-foot { padding: 0 24px 22px; display: flex; justify-content: flex-end; gap: 10px; }
+.name-preview { padding: 12px 14px; background: #f9f9fb; border-radius: 10px; font-size: .82rem; color: var(--text2); margin-bottom: 16px; border: 1px dashed var(--border); }
+.name-preview code { color: var(--purple); font-weight: 600; font-family: "SF Mono", Consolas, monospace; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.radio-group { margin-bottom: 14px; }
+.radio-group > label:first-child { display: block; font-size: .78rem; font-weight: 600; color: var(--text2); margin-bottom: 10px; }
+.radio-opt { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 11px; margin-bottom: 8px; cursor: pointer; transition: all .2s; }
+.radio-opt.checked { border-color: var(--purple); background: var(--purple-light); }
+.radio-opt input { accent-color: var(--purple); width: 18px; height: 18px; }
+.port-box { position: relative; }
+.port-wrap { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 12px; background: #fafafa; min-height: 46px; }
+.port-wrap:focus-within { border-color: var(--purple); box-shadow: 0 0 0 4px var(--purple-light); background: #fff; }
+.port-chip { display: inline-flex; align-items: center; gap: 4px; background: var(--purple-light); color: var(--purple); padding: 4px 9px; border-radius: 7px; font-size: .78rem; font-weight: 600; }
+.port-chip i { cursor: pointer; font-style: normal; opacity: .65; }
+.port-wrap input { border: none; background: transparent; outline: none; flex: 1; min-width: 70px; font-size: .88rem; font-family: inherit; }
+.port-menu { position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin-top: 6px; max-height: 200px; overflow-y: auto; box-shadow: 0 12px 32px rgba(0,0,0,.1); display: none; z-index: 5; }
+.port-menu.show { display: block; }
+.port-item { padding: 10px 14px; display: flex; justify-content: space-between; font-size: .82rem; cursor: pointer; }
+.port-item:hover, .port-item.on { background: var(--purple-light); }
+.port-item b { color: var(--purple); }
+
+.toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(60px);
+    background: var(--text); color: #fff; padding: 11px 22px; border-radius: 22px;
+    font-size: .84rem; font-weight: 500; opacity: 0; transition: all .35s var(--spring); z-index: 200; pointer-events: none;
+}
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+.main-area { display: none; flex: 1; flex-direction: column; }
+.main-area.show { display: flex; }
+.wizard-area { display: flex; flex-direction: column; flex: 1; }
+.wizard-area.hide { display: none; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+    <header class="top">
+        <div class="top-spacer"></div>
+        <div class="top-center">
+            <h1>frpc</h1>
+            <p id="topDesc">选择创建方式，开始配置内网穿透</p>
+        </div>
+        <div class="top-actions">
+            <button class="btn-save" id="btnSaveConfig" onclick="openSaveModal()">保存配置</button>
+        </div>
+    </header>
+
+    <!-- Wizard Step 1 & 2 -->
+    <div class="wizard-area" id="wizardArea">
+        <div class="steps">
+            <div class="step-dot active" id="sd1">① 选择模式</div>
+            <div class="step-line" id="sl1"></div>
+            <div class="step-dot" id="sd2">② 服务器连接</div>
+        </div>
+
+        <!-- Step 1 -->
+        <section class="page active" id="wiz-step1">
+            <div class="mode-grid">
+                <div class="mode-card" id="mode-import" onclick="selectMode('import')">
+                    <div class="mc-icon">📥</div>
+                    <h3>导入已有配置</h3>
+                    <p>粘贴现有 frpc.toml，自动解析服务器与代理规则</p>
+                </div>
+                <div class="mode-card" id="mode-create" onclick="selectMode('create')">
+                    <div class="mc-icon">✨</div>
+                    <h3>从头开始</h3>
+                    <p>手动填写服务器信息，逐步添加代理隧道</p>
+                </div>
+            </div>
+            <div id="importBox" style="display:none" class="card">
+                <div class="field">
+                    <label>粘贴 frpc.toml 内容</label>
+                    <textarea id="importText" placeholder="serverAddr = &quot;...&quot;&#10;[[proxies]]&#10;..."></textarea>
+                </div>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-purple" onclick="goStep2()">下一步 →</button>
+            </div>
+        </section>
+
+        <!-- Step 2 Server -->
+        <section class="page" id="wiz-step2">
+            <div class="card">
+                <div class="card-title">服务器连接</div>
+                <div class="field">
+                    <label>服务器地址</label>
+                    <input type="text" id="serverAddr" placeholder="公网 IP 或域名">
+                </div>
+                <div class="form-grid">
+                    <div class="field">
+                        <label>端口</label>
+                        <input type="number" id="serverPort" value="7000">
+                    </div>
+                    <div class="field">
+                        <label>协议</label>
+                        <select id="transportProtocol">
+                            <option value="tcp" selected>TCP</option>
+                            <option value="quic">QUIC</option>
+                            <option value="kcp">KCP</option>
+                            <option value="websocket">WebSocket</option>
+                            <option value="wss">WSS</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="field">
+                    <label>认证令牌 <span class="opt">(可选)</span></label>
+                    <input type="password" id="authToken" placeholder="与服务端一致的 Token">
+                </div>
+                <div class="field">
+                    <label>STUN 服务器 <span class="opt">(用于 P2P/XTCP 穿透，可选)</span></label>
+                    <input type="text" id="natHoleStunServer" placeholder="留空使用默认: stun.easyvoip.com:3478">
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="adv-block" id="advBlock">
+                    <button type="button" class="adv-toggle" onclick="toggleAdv()">
+                        <span>高级传输配置</span>
+                        <span class="arrow">▼</span>
+                    </button>
+                    <div class="adv-body">
+                        <div class="adv-inner">
+                            <label class="check-row">
+                                <input type="checkbox" id="tcpMux" checked> TCP 多路复用 (tcpMux)
+                            </label>
+                            <div class="form-grid">
+                                <div class="field">
+                                    <label>心跳间隔 (秒)</label>
+                                    <input type="number" id="heartbeatInterval" value="120">
+                                </div>
+                                <div class="field">
+                                    <label>心跳超时 (秒)</label>
+                                    <input type="number" id="heartbeatTimeout" value="90">
+                                </div>
+                                <div class="field">
+                                    <label>TCP Mux 保活间隔 (秒)</label>
+                                    <input type="number" id="tcpMuxKeepalive" value="30">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn btn-ghost" onclick="goStep1()">← 上一步</button>
+                <button class="btn btn-purple" onclick="finishWizard()">完成，进入配置 →</button>
+            </div>
+        </section>
+    </div>
+
+    <!-- Main app after wizard -->
+    <div class="main-area" id="mainArea">
+        <nav class="nav">
+            <button class="nav-btn" data-page="server" onclick="showWizardStep2()">服务器</button>
+            <button class="nav-btn active" data-page="add">添加代理</button>
+            <button class="nav-btn" data-page="list">代理列表</button>
+            <button class="nav-btn" data-page="config">配置文件</button>
+        </nav>
+
+        <section class="page" id="page-add">
+            <div class="grid">
+                <div class="tile" onclick="openDialog('tcp')"><div class="tile-icon">▸</div><div class="tile-name">TCP</div><div class="tile-sub">端口转发</div></div>
+                <div class="tile" onclick="openDialog('udp')"><div class="tile-icon">◆</div><div class="tile-name">UDP</div><div class="tile-sub">端口转发</div></div>
+                <div class="tile" onclick="openDialog('http')"><div class="tile-icon">🌐</div><div class="tile-name">HTTP</div><div class="tile-sub">网页服务</div></div>
+                <div class="tile" onclick="openDialog('https')"><div class="tile-icon">🛡</div><div class="tile-name">HTTPS</div><div class="tile-sub">加密网页</div></div>
+                <div class="tile" onclick="openDialog('stcp')"><div class="tile-icon">🔒</div><div class="tile-name">STCP</div><div class="tile-sub">安全隧道</div></div>
+                <div class="tile" onclick="openDialog('xtcp')"><div class="tile-icon">🔗</div><div class="tile-name">P2P</div><div class="tile-sub">点对点</div></div>
+            </div>
+            <div class="list-head">已添加 · <span id="count">0</span></div>
+            <div id="proxyList"></div>
+        </section>
+
+        <section class="page" id="page-list">
+            <div class="list-head">
+                <span>代理列表 · <span id="listCount">0</span></span>
+                <button class="btn btn-green" onclick="pingAll()">全部 Ping</button>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr><th>类型</th><th>名称</th><th>本地</th><th>远程/域名</th><th>延迟</th><th>操作</th></tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+            <div class="empty" id="tableEmpty" style="display:none">暂无代理，请前往「添加代理」</div>
+        </section>
+
+        <section class="page config-only" id="page-config">
+            <textarea id="configOut" readonly spellcheck="false"></textarea>
+            <p class="config-hint">双击文本可复制 · 内容随代理自动更新</p>
+        </section>
+    </div>
+</div>
+
+<!-- Dialog -->
+<div class="overlay" id="overlay" onclick="if(event.target===this)closeDialog()">
+    <div class="dialog">
+        <div class="dialog-head">
+            <h2 id="dlgTitle">添加代理</h2>
+            <button class="dialog-x" onclick="closeDialog()">✕</button>
+        </div>
+        <div class="dialog-body">
+            <input type="hidden" id="editId">
+            <div class="name-preview">名称自动生成：<code id="namePreview">—</code></div>
+            <div class="form-row">
+                <div class="field" style="margin:0">
+                    <label>本地地址</label>
+                    <input type="text" id="localIP" value="127.0.0.1">
+                </div>
+                <div class="field" style="margin:0">
+                    <label>本地端口</label>
+                    <div class="port-box">
+                        <div class="port-wrap" id="portWrap">
+                            <input type="text" id="portInput" placeholder="选择或输入，回车添加">
+                        </div>
+                        <div class="port-menu" id="portMenu"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="domainBlock" style="display:none">
+                <div class="radio-group">
+                    <label>域名方式</label>
+                    <label class="radio-opt checked" id="radioCustom">
+                        <input type="radio" name="domainMode" value="custom" checked><span>自定义域名</span>
+                    </label>
+                    <label class="radio-opt" id="radioSub">
+                        <input type="radio" name="domainMode" value="sub"><span>子域名</span>
+                    </label>
+                </div>
+                <div class="field" id="fieldCustom">
+                    <label>自定义域名</label>
+                    <input type="text" id="customDomains" placeholder="app.example.com">
+                </div>
+                <div class="field" id="fieldSub" style="display:none">
+                    <label>子域名</label>
+                    <input type="text" id="subdomain" placeholder="web01">
+                </div>
+            </div>
+            <div id="remoteBlock" style="display:none" class="field">
+                <label>远程端口</label>
+                <input type="number" id="remotePort" placeholder="留空自动">
+            </div>
+            <div id="secretBlock" style="display:none" class="field">
+                <label>secretKey</label>
+                <input type="text" id="secretKey" placeholder="留空自动生成">
+            </div>
+        </div>
+        <div class="dialog-foot">
+            <button class="btn btn-ghost" onclick="closeDialog()">取消</button>
+            <button class="btn btn-purple" onclick="submitProxy()">添加</button>
+        </div>
+    </div>
+</div>
+
+</div>
+
+<!-- 保存配置弹窗 -->
+<div class="overlay" id="saveOverlay" onclick="if(event.target===this)closeSaveModal()">
+    <div class="dialog dialog-wide">
+        <div class="dialog-head">
+            <h2>frpc.toml 配置预览</h2>
+            <button class="dialog-x" onclick="closeSaveModal()">✕</button>
+        </div>
+        <div class="dialog-body" style="padding-top:12px">
+            <textarea id="saveConfigPreview" class="config-preview" readonly spellcheck="false"></textarea>
+        </div>
+        <div class="dialog-foot dialog-foot-between">
+            <span class="hint">保存为 frpc.toml 后执行 ./frpc -c frpc.toml</span>
+            <div style="display:flex;gap:10px">
+                <button class="btn btn-ghost" onclick="downloadConfig()">下载文件</button>
+                <button class="btn btn-purple" onclick="copySaveConfig()">一键复制</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PORTS = {
+    tcp: [[22,'SSH'],[80,'HTTP'],[443,'HTTPS'],[3389,'远程桌面'],[5001,'群晖'],[25565,'Minecraft'],[7777,'Terraria'],[18789,'OpenClaw']],
+    udp: [[3389,'RDP'],[8211,'Palworld'],[9050,'Tarkov'],[19132,'MC基岩版'],[24642,'星露谷'],[26900,'七日杀'],[28887,'生存战争']],
+    http: [[80,'HTTP'],[8080,'Web'],[8888,'面板'],[3000,'Node'],[5666,'飞牛']],
+    https: [[443,'HTTPS'],[5001,'群晖'],[5667,'飞牛'],[9443,'绿联'],[18789,'OpenClaw']],
+    stcp: [[22,'SSH'],[3389,'RDP'],[5900,'VNC']],
+    xtcp: [[22,'SSH'],[3389,'RDP']]
+};
+const LABELS = { tcp:'TCP', udp:'UDP', http:'HTTP', https:'HTTPS', stcp:'STCP', xtcp:'P2P' };
+
+let currentMode = null;
+let wizardStep = 1;
+let wizardDone = false;
+let proxies = [];
+let pingResults = {};
+let dlgType = 'tcp';
+let ports = [];
+let editId = null;
+
+function rand(n=6) {
+    const c = '0123456789abcdefghijklmnopqrstuvwxyz';
+    return Array.from({length:n}, () => c[Math.floor(Math.random()*c.length)]).join('');
+}
+function genName(type, port) { return `${type}_${port}_${rand(6)}`; }
+function esc(s) { return String(s).replace(/\\/g,'\\\\').replace(/"/g,'\\"'); }
+
+function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+function selectMode(mode) {
+    currentMode = mode;
+    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('mode-' + mode).classList.add('selected');
+    document.getElementById('importBox').style.display = mode === 'import' ? '' : 'none';
+}
+
+function showWizardStep(n) {
+    wizardStep = n;
+    document.getElementById('wiz-step1').classList.toggle('active', n === 1);
+    document.getElementById('wiz-step2').classList.toggle('active', n === 2);
+    document.getElementById('sd1').className = 'step-dot' + (n === 1 ? ' active' : ' done');
+    document.getElementById('sd2').className = 'step-dot' + (n === 2 ? ' active' : '');
+    document.getElementById('sl1').classList.toggle('done', n > 1);
+}
+
+function goStep1() { showWizardStep(1); }
+function goStep2() {
+    if (!currentMode) { toast('请先选择创建模式'); return; }
+    if (currentMode === 'import') {
+        const txt = document.getElementById('importText').value.trim();
+        if (!txt) { toast('请粘贴配置文件'); return; }
+        parseImport(txt);
+    }
+    showWizardStep(2);
+}
+
+function goStep1FromNav() {
+    document.getElementById('wizardArea').classList.remove('hide');
+    document.getElementById('mainArea').classList.remove('show');
+    showWizardStep(1);
+}
+
+function showWizardStep2() {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => { if (p.id.startsWith('page-')) p.classList.remove('active'); });
+    document.getElementById('wizardArea').classList.remove('hide');
+    document.getElementById('mainArea').classList.remove('show');
+    showWizardStep(2);
+    document.getElementById('topDesc').textContent = '修改服务器连接设置';
+}
+
+function finishWizard() {
+    const addr = document.getElementById('serverAddr').value.trim();
+    if (!addr) { toast('请填写服务器地址'); return; }
+    wizardDone = true;
+    document.getElementById('wizardArea').classList.add('hide');
+    document.getElementById('mainArea').classList.add('show');
+    document.getElementById('btnSaveConfig').classList.add('show');
+    document.getElementById('topDesc').textContent = '内网穿透配置 · 添加代理并生成配置';
+    switchPage('add');
+    refreshConfig();
+    toast('已进入配置界面');
+}
+
+function toggleAdv() { document.getElementById('advBlock').classList.toggle('open'); }
+
+function parseVal(line) {
+    const m = line.match(/^[\w.]+\s*=\s*(.+)$/);
+    if (!m) return null;
+    let v = m[1].trim();
+    if (v.startsWith('[')) {
+        const a = v.match(/\[(.*?)\]/);
+        return a ? a[1].replace(/"/g,'').split(',').map(s=>s.trim()).filter(Boolean) : [];
+    }
+    return v.replace(/^"|"$/g,'');
+}
+
+function parseImport(text) {
+    let global = {}, list = [], cur = null;
+    for (let raw of text.split('\n')) {
+        let line = raw.trim();
+        if (!line || line.startsWith('#')) continue;
+        if (line === '[[proxies]]') { if (cur) list.push(cur); cur = {}; continue; }
+        const key = line.split('=')[0].trim();
+        const val = parseVal(line);
+        if (cur) cur[key] = val; else global[key] = val;
+    }
+    if (cur) list.push(cur);
+
+    if (global.serverAddr) document.getElementById('serverAddr').value = global.serverAddr;
+    if (global.serverPort) document.getElementById('serverPort').value = global.serverPort;
+    if (global['auth.token']) document.getElementById('authToken').value = global['auth.token'];
+    if (global['transport.protocol']) document.getElementById('transportProtocol').value = global['transport.protocol'];
+    if (global.natHoleStunServer) document.getElementById('natHoleStunServer').value = global.natHoleStunServer;
+    if (global['transport.heartbeatInterval']) document.getElementById('heartbeatInterval').value = global['transport.heartbeatInterval'];
+    if (global['transport.tcpMux'] === 'true' || global['transport.tcpMux'] === true) document.getElementById('tcpMux').checked = true;
+
+    proxies = list.map(p => ({
+        id: rand(8),
+        name: p.name || genName(p.type||'tcp', p.localPort||80),
+        type: p.type || 'tcp',
+        localIP: p.localIP || '127.0.0.1',
+        localPort: parseInt(p.localPort) || 80,
+        remotePort: p.remotePort || '',
+        customDomains: Array.isArray(p.customDomains) ? p.customDomains.join(', ') : (p.customDomains||''),
+        subdomain: p.subdomain || '',
+        secretKey: p.secretKey || ''
+    }));
+    pingResults = {};
+    toast('已解析 ' + proxies.length + ' 条代理');
+}
+
+function switchPage(name) {
+    document.querySelectorAll('.nav-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.page === name);
+    });
+    document.querySelectorAll('#mainArea .page').forEach(p => p.classList.remove('active'));
+    const el = document.getElementById('page-' + name);
+    if (el) el.classList.add('active');
+    if (name === 'config') refreshConfig();
+    if (name === 'list') renderTable();
+    if (name === 'add') renderList();
+}
+
+document.querySelectorAll('.nav-btn[data-page]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        if (btn.dataset.page === 'server') return;
+        switchPage(btn.dataset.page);
+    });
+});
+
+// Port picker
+function updateNamePreview() {
+    document.getElementById('namePreview').textContent = ports.length
+        ? genName(dlgType, ports[0]) + (ports.length > 1 ? ` 等${ports.length}条` : '') : '—';
+}
+function renderPortMenu() {
+    const list = PORTS[dlgType] || PORTS.tcp;
+    document.getElementById('portMenu').innerHTML = list.map(([p,d]) =>
+        `<div class="port-item${ports.includes(p)?' on':''}" onclick="togglePort(${p})"><b>${p}</b><span>${d}</span></div>`
+    ).join('');
+}
+function renderChips() {
+    const wrap = document.getElementById('portWrap');
+    const inp = document.getElementById('portInput');
+    wrap.querySelectorAll('.port-chip').forEach(c => c.remove());
+    ports.forEach(p => {
+        const chip = document.createElement('span');
+        chip.className = 'port-chip';
+        chip.innerHTML = `${p}<i onclick="removePort(${p})">×</i>`;
+        wrap.insertBefore(chip, inp);
+    });
+    updateNamePreview();
+}
+function addPort(v) { v=parseInt(v); if(isNaN(v)||v<1||v>65535)return; if(!ports.includes(v)){ports.push(v);renderChips();renderPortMenu();} }
+function removePort(p) { ports=ports.filter(x=>x!==p); renderChips(); renderPortMenu(); }
+function togglePort(p) { ports.includes(p)?removePort(p):addPort(p); }
+
+document.getElementById('portInput').addEventListener('focus', () => { document.getElementById('portMenu').classList.add('show'); renderPortMenu(); });
+document.getElementById('portInput').addEventListener('keydown', e => {
+    if (e.key==='Enter') { e.preventDefault(); const v=e.target.value.trim(); if(v) v.split(/[,，\s]+/).forEach(addPort); e.target.value=''; }
+});
+document.addEventListener('click', e => { if(!e.target.closest('.port-box')) document.getElementById('portMenu').classList.remove('show'); });
+
+document.querySelectorAll('input[name="domainMode"]').forEach(r => {
+    r.addEventListener('change', () => {
+        const custom = r.value === 'custom';
+        document.getElementById('radioCustom').classList.toggle('checked', custom);
+        document.getElementById('radioSub').classList.toggle('checked', !custom);
+        document.getElementById('fieldCustom').style.display = custom ? '' : 'none';
+        document.getElementById('fieldSub').style.display = custom ? 'none' : '';
+    });
+});
+
+function openDialog(type, id) {
+    dlgType = type; editId = id || null; ports = [];
+    document.getElementById('dlgTitle').textContent = (id?'编辑':'添加')+' '+LABELS[type]+' 代理';
+    document.getElementById('domainBlock').style.display = ['http','https'].includes(type)?'':'none';
+    document.getElementById('remoteBlock').style.display = ['tcp','udp'].includes(type)?'':'none';
+    document.getElementById('secretBlock').style.display = ['stcp','xtcp'].includes(type)?'':'none';
+    if (id) {
+        const p = proxies.find(x=>x.id===id);
+        if (p) {
+            document.getElementById('localIP').value = p.localIP;
+            ports = [p.localPort];
+            document.getElementById('customDomains').value = p.customDomains||'';
+            document.getElementById('subdomain').value = p.subdomain||'';
+            document.getElementById('remotePort').value = p.remotePort||'';
+            document.getElementById('secretKey').value = p.secretKey||'';
+            document.getElementById('namePreview').textContent = p.name;
+        }
+    } else {
+        document.getElementById('localIP').value = '127.0.0.1';
+        ['customDomains','subdomain','remotePort','secretKey'].forEach(i=>document.getElementById(i).value='');
+        document.querySelector('input[name="domainMode"][value="custom"]').checked=true;
+        document.querySelector('input[name="domainMode"][value="custom"]').dispatchEvent(new Event('change'));
+        updateNamePreview();
+    }
+    renderChips(); renderPortMenu();
+    document.getElementById('overlay').classList.add('on');
+    document.body.style.overflow='hidden';
+}
+function closeDialog() { document.getElementById('overlay').classList.remove('on'); document.body.style.overflow=''; }
+
+function submitProxy() {
+    const localIP = document.getElementById('localIP').value.trim();
+    const pi = document.getElementById('portInput').value.trim();
+    if (pi) pi.split(/[,，\s]+/).forEach(addPort);
+    document.getElementById('portInput').value='';
+    if (!localIP||!ports.length) { toast('请填写地址和端口'); return; }
+    const mode = document.querySelector('input[name="domainMode"]:checked').value;
+    const common = {
+        type: dlgType, localIP,
+        customDomains: mode==='custom'?document.getElementById('customDomains').value.trim():'',
+        subdomain: mode==='sub'?document.getElementById('subdomain').value.trim():'',
+        remotePort: document.getElementById('remotePort').value,
+        secretKey: document.getElementById('secretKey').value.trim()
+    };
+    if (['stcp','xtcp'].includes(dlgType)&&!common.secretKey) common.secretKey=rand(16);
+    if (editId) {
+        const i = proxies.findIndex(p=>p.id===editId);
+        if (i>=0) { proxies[i]={...proxies[i],...common,localPort:ports[0]}; toast('已更新'); }
+    } else {
+        ports.forEach(port => {
+            proxies.push({ id:rand(8), name:genName(dlgType,port), localPort:port,
+                remotePort: common.remotePort||(['tcp','udp'].includes(dlgType)?port+1000:''), ...common });
+        });
+        toast('已添加 '+ports.length+' 条');
+    }
+    closeDialog(); renderList(); renderTable(); refreshConfig();
+}
+
+function deleteProxy(id) {
+    if (!confirm('删除此代理？')) return;
+    proxies = proxies.filter(p=>p.id!==id);
+    delete pingResults[id];
+    renderList(); renderTable(); refreshConfig();
+}
+
+function renderList() {
+    document.getElementById('count').textContent = proxies.length;
+    const el = document.getElementById('proxyList');
+    if (!proxies.length) { el.innerHTML='<div class="empty">点击上方卡片添加代理</div>'; return; }
+    el.innerHTML = proxies.map(p=>`
+        <div class="row">
+            <div>
+                <div class="row-title"><span class="tag">${p.type.toUpperCase()}</span>${p.name}</div>
+                <div class="row-meta">${p.localIP}:${p.localPort}${p.customDomains?' · '+p.customDomains:''}${p.subdomain?' · '+p.subdomain:''}</div>
+            </div>
+            <div class="row-btns">
+                <button class="btn btn-ghost" onclick="openDialog('${p.type}','${p.id}')">编辑</button>
+                <button class="btn btn-danger" onclick="deleteProxy('${p.id}')">删除</button>
+            </div>
+        </div>`).join('');
+}
+
+function renderTable() {
+    document.getElementById('listCount').textContent = proxies.length;
+    const tbody = document.getElementById('tableBody');
+    const empty = document.getElementById('tableEmpty');
+    if (!proxies.length) { tbody.innerHTML=''; empty.style.display=''; return; }
+    empty.style.display='none';
+    tbody.innerHTML = proxies.map(p => {
+        const pr = pingResults[p.id];
+        let pingHtml = '<span class="ping-badge ping-wait">—</span>';
+        if (pr === 'loading') pingHtml = '<span class="ping-badge ping-wait">…</span>';
+        else if (pr && pr.ok) pingHtml = `<span class="ping-badge ping-ok">${pr.ms}ms</span>`;
+        else if (pr && !pr.ok) pingHtml = `<span class="ping-badge ping-fail">${pr.err||'失败'}</span>`;
+        const remote = p.customDomains ? p.customDomains.split(',')[0] : (p.subdomain || (p.remotePort||'—'));
+        return `<tr>
+            <td><span class="tag">${p.type.toUpperCase()}</span></td>
+            <td>${p.name}</td>
+            <td>${p.localIP}:${p.localPort}</td>
+            <td>${remote}</td>
+            <td>${pingHtml}</td>
+            <td>
+                <button class="btn btn-green" onclick="pingProxy('${p.id}')">Ping</button>
+                <button class="btn btn-ghost" onclick="openDialog('${p.type}','${p.id}')">编辑</button>
+                <button class="btn btn-danger" onclick="deleteProxy('${p.id}')">删</button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function getPingTarget(p) {
+    if (p.customDomains) {
+        const d = p.customDomains.split(',')[0].trim();
+        return (p.type === 'https' ? 'https://' : 'http://') + d;
+    }
+    if (p.subdomain) return 'http://' + p.subdomain + '.frps.com';
+    if (p.remotePort && document.getElementById('serverAddr').value.trim()) {
+        const addr = document.getElementById('serverAddr').value.trim();
+        const proto = p.type === 'https' ? 'https' : 'http';
+        return `${proto}://${addr}:${p.remotePort}`;
+    }
+    return null;
+}
+
+async function pingProxy(id) {
+    const p = proxies.find(x => x.id === id);
+    if (!p) return;
+    const url = getPingTarget(p);
+    pingResults[id] = 'loading';
+    renderTable();
+    if (!url) {
+        pingResults[id] = { ok: false, err: '无域名' };
+        renderTable();
+        return;
+    }
+    const t0 = performance.now();
+    try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 8000);
+        await fetch(url, { mode: 'no-cors', signal: ctrl.signal, cache: 'no-store' });
+        clearTimeout(timer);
+        const ms = Math.round(performance.now() - t0);
+        pingResults[id] = { ok: true, ms };
+    } catch (e) {
+        if (e.name === 'AbortError') pingResults[id] = { ok: false, err: '超时' };
+        else pingResults[id] = { ok: false, err: '不可达' };
+    }
+    renderTable();
+}
+
+async function pingAll() {
+    if (!proxies.length) { toast('暂无代理'); return; }
+    toast('正在 Ping…');
+    for (const p of proxies) await pingProxy(p.id);
+    toast('Ping 完成');
+}
+
+function buildProxy(p) {
+    let s = `[[proxies]]\nname = "${esc(p.name)}"\ntype = "${p.type}"\nlocalIP = "${esc(p.localIP)}"\nlocalPort = ${p.localPort}\n`;
+    if (p.remotePort && ['tcp','udp'].includes(p.type)) s += `remotePort = ${p.remotePort}\n`;
+    if (p.subdomain) s += `subdomain = "${esc(p.subdomain)}"\n`;
+    if (p.customDomains) {
+        const d = p.customDomains.split(',').map(x=>x.trim()).filter(Boolean);
+        s += `customDomains = [${d.map(x=>`"${esc(x)}"`).join(', ')}]\n`;
+    }
+    if (p.secretKey) s += `secretKey = "${esc(p.secretKey)}"\n`;
+    return s + '\n';
+}
+
+function getConfigText() {
+    const addr = document.getElementById('serverAddr').value.trim() || 'YOUR_SERVER_ADDR';
+    const port = document.getElementById('serverPort').value || 7000;
+    const token = document.getElementById('authToken').value.trim();
+    const proto = document.getElementById('transportProtocol').value;
+    const stun = document.getElementById('natHoleStunServer').value.trim();
+    const hb = document.getElementById('heartbeatInterval').value;
+    const tcpMux = document.getElementById('tcpMux').checked;
+    let c = `# frpc.toml\n# ${new Date().toLocaleString('zh-CN')}\n\n`;
+    c += `serverAddr = "${esc(addr)}"\nserverPort = ${port}\n\n`;
+    if (token) { c += `auth.method = "token"\nauth.token = "${esc(token)}"\n\n`; }
+    if (proto !== 'tcp') c += `transport.protocol = "${proto}"\n`;
+    if (tcpMux) c += `transport.tcpMux = true\n`;
+    c += `transport.heartbeatInterval = ${hb}\n`;
+    const hbTimeout = document.getElementById('heartbeatTimeout').value;
+    const muxKeep = document.getElementById('tcpMuxKeepalive').value;
+    if (hbTimeout) c += `transport.heartbeatTimeout = ${hbTimeout}\n`;
+    if (muxKeep) c += `transport.tcpMuxKeepaliveInterval = ${muxKeep}\n`;
+    if (stun) c += `natHoleStunServer = "${esc(stun)}"\n`;
+    c += '\n';
+    if (proxies.length) proxies.forEach(p => { c += buildProxy(p); });
+    else c += '# 请先在「添加代理」中配置隧道\n';
+    return c;
+}
+
+function refreshConfig() {
+    const c = getConfigText();
+    const el = document.getElementById('configOut');
+    if (el) el.value = c;
+    return c;
+}
+
+function openSaveModal() {
+    const addr = document.getElementById('serverAddr').value.trim();
+    if (!addr) { toast('请先完成服务器配置'); return; }
+    const c = refreshConfig();
+    document.getElementById('saveConfigPreview').value = c;
+    document.getElementById('saveOverlay').classList.add('on');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeSaveModal() {
+    document.getElementById('saveOverlay').classList.remove('on');
+    document.body.style.overflow = '';
+}
+
+function copySaveConfig() {
+    const ta = document.getElementById('saveConfigPreview');
+    navigator.clipboard.writeText(ta.value).then(() => toast('已复制到剪贴板')).catch(() => {
+        ta.select(); document.execCommand('copy'); toast('已复制到剪贴板');
+    });
+}
+
+function downloadConfig() {
+    const c = document.getElementById('saveConfigPreview').value || getConfigText();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([c], { type: 'text/plain;charset=utf-8' }));
+    a.download = 'frpc.toml';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast('已下载 frpc.toml');
+}
+
+document.getElementById('configOut')?.addEventListener('dblclick', () => {
+    const v = document.getElementById('configOut').value;
+    navigator.clipboard.writeText(v).then(() => toast('已复制'));
+});
+
+['serverAddr','serverPort','authToken','transportProtocol','natHoleStunServer','heartbeatInterval','heartbeatTimeout','tcpMux','tcpMuxKeepalive','tcpMux']
+    .forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', refreshConfig);
+        if (el) el.addEventListener('input', refreshConfig);
+    });
+
+renderList();
+</script>
+</body>
+</html>
